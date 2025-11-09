@@ -7,6 +7,9 @@ import 'dayjs/locale/ru';
 import ErrorBoundary from './ErrorBoundary';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
 import './App.css';
 
 dayjs.locale('ru');
@@ -70,49 +73,6 @@ const AppHeader = () => {
   );
 };
 
-const HomePage = () => (
-  <div data-easytag="id15-src/App.js" style={{ padding: 24 }}>
-    <h1 data-easytag="id16-src/App.js" style={{ marginBottom: 12 }}>Главная</h1>
-    <p data-easytag="id17-src/App.js">Добро пожаловать! Продолжайте работу с приложением.</p>
-  </div>
-);
-
-const LoginPage = () => {
-  const { login } = useAuth();
-  const [form] = require('antd').Form.useForm();
-  const { Input, Form, Button } = require('antd');
-
-  const onFinish = async (values) => {
-    await login(values.email, values.password);
-  };
-
-  return (
-    <div data-easytag="id18-src/App.js" style={{ maxWidth: 420, margin: '32px auto' }}>
-      <h2 data-easytag="id19-src/App.js" style={{ marginBottom: 24 }}>Вход</h2>
-      <Form data-easytag="id20-src/App.js" layout="vertical" form={form} onFinish={onFinish}>
-        <Form.Item name="email" label="Почта" rules={[{ required: true, message: 'Введите почту' }, { type: 'email', message: 'Некорректная почта' }]}>
-          <Input data-easytag="id21-src/App.js" placeholder="you@example.com" />
-        </Form.Item>
-        <Form.Item name="password" label="Пароль" rules={[{ required: true, message: 'Введите пароль' }]}>
-          <Input.Password data-easytag="id22-src/App.js" placeholder="Пароль" />
-        </Form.Item>
-        <Form.Item>
-          <Button data-easytag="id23-src/App.js" type="primary" htmlType="submit" block>
-            Войти
-          </Button>
-        </Form.Item>
-      </Form>
-    </div>
-  );
-};
-
-const RegisterPage = () => (
-  <div data-easytag="id24-src/App.js" style={{ maxWidth: 640, margin: '32px auto' }}>
-    <h2 data-easytag="id25-src/App.js" style={{ marginBottom: 12 }}>Регистрация</h2>
-    <p data-easytag="id26-src/App.js">Страница регистрации будет реализована на следующем шаге.</p>
-  </div>
-);
-
 const ProfilePage = () => {
   const { user } = useAuth();
   return (
@@ -126,7 +86,6 @@ const ProfilePage = () => {
 };
 
 const RouteSync = () => {
-  // Notify host about routes
   useEffect(() => {
     const routes = ['/', '/register', '/login', '/profile'];
     if (typeof window.handleRoutes === 'function') {
@@ -142,9 +101,9 @@ function AppShell() {
       <AppHeader />
       <Content data-easytag="id33-src/App.js" style={{ padding: '24px 16px' }}>
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route
             path="/profile"
             element={
@@ -153,7 +112,7 @@ function AppShell() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<HomePage />} />
+          <Route path="*" element={<Home />} />
         </Routes>
         <RouteSync />
       </Content>

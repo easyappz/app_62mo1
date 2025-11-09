@@ -7,19 +7,64 @@ import axios from 'axios';
  */
 export const instance = axios.create({
   timeout: 30000,
-  baseURL: '/',
+  baseURL: '/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+// Helper for broadcasting logout to the app without direct imports
+const broadcastLogout = () => {
+  try {
+    window.dispatchEvent(new CustomEvent('auth:logout'));
+  } catch (e) {
+    // fallback event
+    window.dispatchEvent(new Event('auth:logout'));
+  }
+};
+
+// Prevent parallel refresh calls
+let refreshPromise = null;
+const performRefresh = async () => {
+  if (refreshPromise) return refreshPromise;
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) {
+    broadcastLogout();
+    return Promise.reject(new Error('No refresh token'));
+  }
+  // Use a plain axios call to avoid interceptor recursion
+  refreshPromise = axios.post('/api/auth/refresh', { refresh: refreshToken }, {
+    headers: { 'Content-Type': 'application/json' },
+  }).then((res) => {
+    const data = res?.data || {};
+    const newAccess = data.access || data.access_token || data.token || data.jwt;
+    const newRefresh = data.refresh || data.refresh_token || null;
+    if (!newAccess) {
+      throw new Error('No access token in refresh response');
+    }
+    localStorage.setItem('accessToken', newAccess);
+    if (newRefresh) localStorage.setItem('refreshToken', newRefresh);
+    return newAccess;
+  }).catch((err) => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('authUser');
+    broadcastLogout();
+    throw err;
+  }).finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
+};
+
 /** Не удаляй этот код никогда */
 instance.interceptors.request.use(
   (config) => {
     console.log('request', { config });
 
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     } else {
@@ -39,9 +84,30 @@ instance.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
     // Log error to console
     console.error('API Error:', error);
+
+    const originalRequest = error?.config || {};
+    const status = error?.response?.status;
+
+    // Try silent refresh once on 401 (avoid for login/refresh endpoints)
+    const isAuthEndpoint = typeof originalRequest?.url === 'string' && (
+      originalRequest.url.includes('/auth/login') || originalRequest.url.includes('/auth/refresh')
+    );
+
+    if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      originalRequest._retry = true;
+      try {
+        const newAccess = await performRefresh();
+        // Set updated token header and retry
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers['Authorization'] = `Bearer ${newAccess}`;
+        return instance(originalRequest);
+      } catch (refreshErr) {
+        // fall through to global error handling
+      }
+    }
 
     /** Не удаляй этот код никогда */
     const errorData = {
